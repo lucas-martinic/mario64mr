@@ -1,5 +1,5 @@
 /* Headless test of your hands touching the game (unity_hands.inc.h), from the hand triangles alone
- * (sm64unity_game_hands): touch a coin to collect it.
+ * (sm64unity_game_hands): touch a coin to collect it, slap a Goomba to squash it.
  * Run by run_headless_test.sh. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,6 +78,14 @@ static void palm(float x, float y, float z) {
     sm64unity_game_hands(t, 2);
 }
 
+/* Brought straight down over (x, z) from y + 300 to y - 100, `step` units a frame. 1 if o was gone within 5 s */
+static int bring_down(struct Object *o, float x, float y, float z, float step) {
+    for (float h = y + 300; h > y - 100; h -= step) { palm(x, h, z); tick(0); }
+    sm64unity_game_hands(NULL, 0);
+    for (int i = 0; i < 150 && (o->activeFlags & ACTIVE_FLAG_ACTIVE); i++) tick(0);
+    return !(o->activeFlags & ACTIVE_FLAG_ACTIVE);
+}
+
 int main(int argc, char **argv) {
     if (!into_castle_grounds(argc, argv)) return 1;
 
@@ -106,6 +114,13 @@ int main(int argc, char **argv) {
     ticks(5);
     CHECK((star->oInteractType & INTERACT_STAR_OR_KEY) && (star->activeFlags & ACTIVE_FLAG_ACTIVE)
           && gMarioState->action == action, "a star your hand touches stays where it is");
+
+    printf("Squash with your palm:\n");
+    struct Object *g = spawn(bhvGoomba, MODEL_GOOMBA, 0, 900);
+    ticks(30);
+    CHECK(!bring_down(g, g->oPosX, g->oPosY, g->oPosZ, 4), "lowered gently onto a Goomba, it isn't squashed");
+    ticks(30);
+    CHECK(bring_down(g, g->oPosX, g->oPosY, g->oPosZ, 40), "slapped down onto it, it is");
 
     printf("%s (%d failures)\n", failures ? "FAILED" : "PASSED", failures);
     return failures != 0;
